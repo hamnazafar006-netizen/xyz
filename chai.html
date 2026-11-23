@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chai Stall</title>
+<style>
+  :root{--bg:#fbf3e4;--card:#fff;--ink:#3b2416;--accent:#b5541c;--accent2:#7a3410;--muted:#8a7360;--line:#ecdcc3}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+  header{background:var(--accent2);color:#fff;padding:20px 16px;text-align:center}
+  header h1{margin:0;font-size:1.6rem;letter-spacing:.5px}
+  header p{margin:4px 0 0;opacity:.85;font-size:.9rem}
+  main{max-width:760px;margin:0 auto;padding:16px}
+  .summary{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;text-align:center}
+  .stat b{display:block;font-size:1.8rem;color:var(--accent)}
+  .stat span{color:var(--muted);font-size:.85rem}
+  h2{font-size:1.1rem;margin:18px 0 8px}
+  .item{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px}
+  .item .info{flex:1}
+  .item .name{font-weight:600}
+  .item .price{color:var(--muted);font-size:.9rem}
+  .ctrl{display:flex;align-items:center;gap:10px}
+  button{font:inherit;cursor:pointer;border:0;border-radius:10px}
+  .ctrl button{width:42px;height:42px;font-size:1.4rem;background:var(--accent);color:#fff}
+  .ctrl button.minus{background:#e8d6bd;color:var(--ink)}
+  .ctrl button:active{transform:scale(.94)}
+  .count{min-width:28px;text-align:center;font-weight:700;font-size:1.1rem}
+  .actions{display:flex;gap:10px;margin-top:16px}
+  .actions button{flex:1;padding:12px;background:#fff;border:1px solid var(--line);color:var(--ink)}
+  .actions button.danger{color:#b3261e}
+  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);font-size:.92rem}
+  th{background:#f6e9d2}
+  td.r,th.r{text-align:right}
+  footer{text-align:center;color:var(--muted);font-size:.8rem;padding:20px}
+</style>
+</head>
+<body>
+<header>
+  <h1>☕ Chai Stall</h1>
+  <p id="today"></p>
+</header>
+<main>
+  <div class="summary">
+    <div class="stat"><b id="totalItems">0</b><span>Items sold today</span></div>
+    <div class="stat"><b id="totalRs">Rs 0</b><span>Sales today (PKR)</span></div>
+  </div>
+
+  <h2>Menu — tap + to record a sale</h2>
+  <div id="menu"></div>
+
+  <div class="actions">
+    <button id="resetBtn" class="danger">Reset today</button>
+  </div>
+
+  <h2>Recent days</h2>
+  <table>
+    <thead><tr><th>Date</th><th class="r">Items</th><th class="r">Sales</th></tr></thead>
+    <tbody id="history"></tbody>
+  </table>
+</main>
+<footer>Data is saved in this browser only.</footer>
+
+<script>
+const MENU = [
+  {id:"chai",    name:"Doodh Patti Chai",   price:100},
+  {id:"karak",   name:"Karak Chai",         price:120},
+  {id:"kashmiri",name:"Kashmiri Chai",      price:200},
+  {id:"kehwa",   name:"Kehwa / Green Tea",  price:80},
+  {id:"paratha", name:"Paratha",            price:120},
+  {id:"samosa",  name:"Samosa",             price:50},
+  {id:"pakora",  name:"Pakora Plate",       price:150},
+  {id:"rusk",    name:"Rusk (2 pcs)",       price:40}
+];
+const KEY = "chaiStallSales";
+const pkr = n => "Rs " + n.toLocaleString("en-PK");
+const todayKey = () => {
+  const d = new Date();
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+};
+
+let data = {};
+try { data = JSON.parse(localStorage.getItem(KEY)) || {}; } catch(e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch(e) {} };
+
+function day(){ return data[todayKey()] || (data[todayKey()] = {}); }
+function change(id, delta){
+  const d = day();
+  d[id] = Math.max(0, (d[id]||0) + delta);
+  save(); render();
+}
+function totals(d){
+  let items=0, rs=0;
+  MENU.forEach(m => { const c = d[m.id]||0; items += c; rs += c*m.price; });
+  return {items, rs};
+}
+
+function render(){
+  document.getElementById("today").textContent =
+    new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+
+  const d = day();
+  const t = totals(d);
+  document.getElementById("totalItems").textContent = t.items;
+  document.getElementById("totalRs").textContent = pkr(t.rs);
+
+  const menu = document.getElementById("menu");
+  menu.innerHTML = "";
+  MENU.forEach(m => {
+    const row = document.createElement("div");
+    row.className = "item";
+    row.innerHTML = `
+      <div class="info"><div class="name">${m.name}</div><div class="price">${pkr(m.price)}</div></div>
+      <div class="ctrl">
+        <button class="minus" aria-label="Remove one ${m.name}">−</button>
+        <span class="count">${d[m.id]||0}</span>
+        <button aria-label="Add one ${m.name}">+</button>
+      </div>`;
+    const [minus, plus] = row.querySelectorAll("button");
+    minus.onclick = () => change(m.id, -1);
+    plus.onclick = () => change(m.id, 1);
+    menu.appendChild(row);
+  });
+
+  const hist = document.getElementById("history");
+  const keys = Object.keys(data).sort().reverse().slice(0,7);
+  hist.innerHTML = keys.map(k => {
+    const x = totals(data[k]);
+    return `<tr><td>${k}</td><td class="r">${x.items}</td><td class="r">${pkr(x.rs)}</td></tr>`;
+  }).join("") || `<tr><td colspan="3">No sales yet.</td></tr>`;
+}
+
+document.getElementById("resetBtn").onclick = () => {
+  if (confirm("Reset today's counter to zero?")) { data[todayKey()] = {}; save(); render(); }
+};
+
+render();
+// Roll over to a new day automatically if the page stays open past midnight
+setInterval(render, 60000);
+</script>
+</body>
+</html>
